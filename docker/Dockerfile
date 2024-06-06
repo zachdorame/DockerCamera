@@ -1,33 +1,23 @@
-# build opencv
-FROM gcc:latest
+# Start with the official Golang image as a base
+FROM golang:1.22
 
+# Set the Current Working Directory inside the container
 WORKDIR /src
 
-RUN apt update && apt install -y cmake g++ wget unzip
-RUN wget -O opencv.zip https://github.com/opencv/opencv/archive/4.x.zip
-RUN unzip opencv.zip
-RUN mkdir -p build && cd build && cmake -D OPENCV_GENERATE_PKGCONFIG=YES ../opencv-4.x && cmake --build .
+# Copy the go.mod and go.sum files
+COPY go.mod ./
 
-RUN cd build && make install
-# ENV LD_LIBRARY_PATH usr/lib
-# TODO: this is probably a really weird place to be putting openCV lib files...
+# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+RUN go mod download
 
-# missing step, this feels like a hack
-# https://stackoverflow.com/questions/12335848/opencv-program-compile-error-libopencv-core-so-2-4-cannot-open-shared-object-f
-RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf
-RUN ldconfig -v
+# Copy the source code into the container
+COPY . .
 
-# Set the working directory inside the container
-WORKDIR /usr/src/program
+# Build the Go app
+RUN go build -o server .
 
-# Copy everything from src/ on the host machine to /usr/src/program in the base image
-# Copy everything from src into program dir
-COPY src /usr/src/program
+# Expose port 8080 to the outside world
+EXPOSE 8080
 
-# Compile everything in /usr/src/program
-RUN g++ -o out *.cpp `pkg-config opencv4 --cflags --libs`
-# RUN g++ -o out *.cpp -Wl,-rpath,usr/lib -lopencv_core
-
-
-# Run the executable
-CMD ["./out"]
+# Command to run the executable
+CMD ["./server"]
